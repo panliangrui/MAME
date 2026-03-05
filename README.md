@@ -114,7 +114,7 @@ Feature extraction code reference project: https://github.com/mahmoodlab/TRIDENT
 
 ```
 ```markdown
-python constract_graph_multi_view.py
+python constract_graph.py
 ```
 
 ## Models
@@ -128,9 +128,9 @@ Workflow for constructing the MAME model to predict STAS in patients with lung c
 
 
 
-**Test WSI**
+**Train WSI**
 ```markdown
-python test_STAS.py
+python train_clam_mb.py
 ```
 
 ## Datastes
