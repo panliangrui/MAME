@@ -118,7 +118,7 @@ python constract_graph.py
 ```
 
 ## Models
-**DAEM**
+**MAME**
 
   <a href="(https://github.com/panliangrui/MAME/blob/main/Figure%201.jpg)">
     <img src="https://github.com/panliangrui/MAME/blob/main/Figure%201.jpg" width="912" height="1026" />
