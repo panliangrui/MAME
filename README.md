@@ -61,15 +61,57 @@ Upload the .svs file to the input folder
 
 ### Feature Extraction
 
-Features extracted based on CTransPath.
-Please refer to CTransPath: https://github.com/Xiyue-Wang/TransPath
+Features extracted based on Prov-GigaPath and CONCHv1.5.
+Please refer to Prov-GigaPath and CONCHv1.5: https://huggingface.co/prov-gigapath/prov-gigapath and https://huggingface.co/MahmoodLab/conchv1_5
 
-Feature extraction code reference project: https://github.com/mahmoodlab/CLAM
-```markdown
-python create_patch_fp_256.py; create_patch_fp_512.py; run_wsi_inference.py
-```
-```markdown
-python extract_features_fp_256.py; extract_features_fp_512.py;  summarize_tme_features.py
+Feature extraction code reference project: https://github.com/mahmoodlab/TRIDENT
+
+**Or follow step-by-step instructions:**
+
+**Step 1: Tissue Segmentation:** Segments tissue vs. background from a dir of WSIs
+ - **Command**:
+   ```bash
+   python run_batch_of_slides.py --task seg --wsi_dir ./wsis --job_dir ./trident_processed --gpu 0 --segmenter hest
+   ```
+   - `--task seg`: Specifies that you want to do tissue segmentation.
+   - `--wsi_dir ./wsis`: Path to dir with your WSIs.
+   - `--job_dir ./trident_processed`: Output dir for processed results.
+   - `--gpu 0`: Uses GPU with index 0.
+   - `--segmenter`: Segmentation model. Defaults to `hest`. Switch to `grandqc` for fast H&E segmentation. Add the option `--remove_artifacts` for additional artifact clean up.
+ - **Outputs**:
+   - WSI thumbnails in `./trident_processed/thumbnails`.
+   - WSI thumbnails with tissue contours in `./trident_processed/contours`.
+   - GeoJSON files containing tissue contours in `./trident_processed/contours_geojson`. These can be opened in [QuPath](https://qupath.github.io/) for editing/quality control, if necessary.
+
+ **Step 2: Tissue Patching:** Extracts patches from segmented tissue regions at a specific magnification.
+ - **Command**:
+   ```bash
+   python run_batch_of_slides.py --task coords --wsi_dir ./wsis --job_dir ./trident_processed --mag 20 --patch_size 256 --overlap 0
+   ```
+   - `--task coords`: Specifies that you want to do patching.
+   - `--wsi_dir wsis`: Path to the dir with your WSIs.
+   - `--job_dir ./trident_processed`: Output dir for processed results.
+   - `--mag 20`: Extracts patches at 20x magnification.
+   - `--patch_size 256`: Each patch is 256x256 pixels.
+   - `--overlap 0`: Patches overlap by 0 pixels (**always** an absolute number in pixels, e.g., `--overlap 128` for 50% overlap for 256x256 patches.
+ - **Outputs**:
+   - Patch coordinates as h5 files in `./trident_processed/20x_256px/patches`.
+   - WSI thumbnails annotated with patch borders in `./trident_processed/20x_256px/visualization`.
+
+ **Step 3a: Patch Feature Extraction:** Extracts features from tissue patches using a specified encoder
+ - **Command**:
+   ```bash
+   python run_batch_of_slides.py --task feat --wsi_dir ./wsis --job_dir ./trident_processed --patch_encoder uni_v1 --mag 20 --patch_size 256 
+   ```
+   - `--task feat`: Specifies that you want to do feature extraction.
+   - `--wsi_dir wsis`: Path to the dir with your WSIs.
+   - `--job_dir ./trident_processed`: Output dir for processed results.
+   - `--patch_encoder uni_v1`: Uses the `UNI` patch encoder. See below for list of supported models. 
+   - `--mag 20`: Features are extracted from patches at 20x magnification.
+   - `--patch_size 256`: Patches are 256x256 pixels in size.
+ - **Outputs**: 
+   - Features are saved as h5 files in `./trident_processed/20x_256px/features_uni_v1`. (Shape: `(n_patches, feature_dim)`)
+
 ```
 ```markdown
 python constract_graph_multi_view.py
@@ -78,11 +120,11 @@ python constract_graph_multi_view.py
 ## Models
 **DAEM**
 
-  <a href="(https://github.com/panliangrui/DAEM/blob/main/images/Figure1.jpg)">
-    <img src="https://github.com/panliangrui/DAEM/blob/main/images/Figure1.jpg" width="912" height="1026" />
+  <a href="(https://github.com/panliangrui/MAME/blob/main/Figure%201.jpg)">
+    <img src="https://github.com/panliangrui/MAME/blob/main/Figure%201.jpg" width="912" height="1026" />
   </a>
 
-Workflow of collection and organization of lung cancer STAS dataset, model training and inference, and multi-center validation. a, Resection of lung tumor tissue. b, Digitization of FSs and PSs. c, Histopathology image slice processing, d, Pathologists’ triple cross-validation to annotate data. e, Extraction of multi-scale histopathology image features and parallel expert models to diagnose and localize STAS in histopathology images. f, Details of the expert module, where AMP1d is the AdaptiveMaxPool1d layer. g, Details of the classifier. h, Distribution and quantity of multi-center data.
+Workflow for constructing the MAME model to predict STAS in patients with lung cancer using multimodal data. a, Acquisition and annotation pipeline for preoperative CT scans. b, Workflow from surgical resection specimens to digitized histopathology WSIs. c, Multimodal modeling pipeline for predicting STAS status in lung cancer patients. d, Explainability analysis of the multimodal model. e, Identification of auxiliary biomarkers enabled by the multimodal model. f, Distribution of multimodal samples across the multicenter cohorts.
 
 
 
@@ -97,20 +139,17 @@ python test_STAS.py
 ```markdown
 Data access is available upon request via email(lip141772@gmail.com).
 ```
-In this retrospective, multi-center study, we utilized anonymized hematoxylin and eosin (H&E) stained lung cancer slides from six hospitals and two projects in China and the United States, constructing nine cohorts for model training and validation. Based on our research objectives, only patients meeting the following criteria were included: (1) diagnosed with lung adenocarcinoma (LUAD); (2) corresponding routine pathological slices, including primary tumor tissue and adjacent non-tumor tissue; (3) detailed TNM staging; (4) high-quality slides, such as those without bending, wrinkling, blurring, or color changes; (5) absence of tumor cells randomly distributed, with irregular pericellular nests typically located at the tissue slice edge or outside the tissue slice; (6) absence of tumor cell continuity spreading from the tumor edge to the most distant airway; (7) absence of benign cytological features of lung epithelial cells or bronchial cells and/or presence of cilia; (8) absence of linear cellular strips detached from the alveolar wall in histopathological images. Two experienced pathologists, using microscopes and adhering to double-blind principles with cross-validation, labeled STAS (spread through air spaces) for each whole-slide image (WSI) to ensure accuracy and reduce subjectivity, missed diagnoses, or overdiagnosis. We included WSIs from the cohort of the Second Xiangya Hospital of Central South University (SXH-CSU) as internal training and validation data. This cohort selected 550 patients diagnosed with STAS and 170 patients without STAS from 12169 patients who underwent lung nodule resection at the Second Xiangya Hospital between April 2020 and December 2023. The experiment collected 2,494 WSIs (including 435 FSs and 2,057 PSs), immunohistochemical image data, and related clinical information from the selected patients.
+In this retrospective, multicenter study, we used anonymized hematoxylin and eosin (H&E) lung cancer slides and matching CT images from five cohorts across five independent hospitals in China for model training and validation. The patient inclusion and exclusion process for the multicenter study is shown in Figure 1. The detailed inclusion and exclusion criteria for WSI data are provided in Supplementary Table 1. To ensure the accuracy of STAS diagnosis, three experienced pathologists performed labeling of each WSI under a double-blind cross-validation process to minimize misdiagnosis and missed diagnoses. Additionally, the use of immunomarkers such as TTF-1, CK, and CD68 further ensured the distinction between STAS spread and tissue cells. Subsequently, through the inclusion and exclusion criteria for CT imaging data (Supplementary 1.2), we ensured the consistency and reliability of the CT and pathological data, providing high-quality samples for multimodal data fusion analysis. The data in this study were sourced from the Second Xiangya Hospital of Central South University (SXH-CSU) cohort. A total of 280 STAS-diagnosed patients and 282 non-STAS patients were selected, with one representative PS chosen for each patient. In total, 562 PS slides, 562 CT image sets, relevant immunohistochemical data, and clinical information were collected. However, compared to PS, the number of FS lung cancer patients meeting both the inclusion/exclusion criteria for patients and multimodal data inclusion/exclusion criteria was smaller. Among them, 152 STAS patients and 107 non-STAS patients contributed 339 FSs. Each patient may have one or more available FS (some patients had multiple nodules), and each FS was matched with a single CT image set.
 
+The external validation dataset comprised preoperative CT imaging and PSs collected from four independent medical centers. For each patient, one CT image series and one PS were selected according to predefined inclusion and exclusion criteria for patient enrollment, WSI quality and CT acquisition. The XH-CSU cohort (Xiangya Hospital, Central South University) contributed 144 STAS and 59 non-STAS lung cancer patients diagnosed between August 2022 and June 2023, with one PS and 153 CT series included for each patient. The TXH-CSU cohort (The Third Xiangya Hospital of Central South University) provided PSs and CT images from 11 patients with pathologically confirmed STAS lung cancer and 52 non-STAS patients diagnosed between March 2022 and May 2023. The FAH-NHU cohort (The First Affiliated Hospital, Hengyang Medical School, University of South China) contributed 69 PSs and 69 CT series from 18 STAS and 51 non-STAS patients with confirmed LUAD diagnosed between 2021 and 2024. The PCPH cohort (Pingjiang County People’s Hospital) provided 66 PSs and 66 CT series from 18 STAS and 48 non-STAS LUAD patients diagnosed between 2019 and 2024. Summary statistics for all cohorts are provided in the Supplementary Tables 1.
 
-The external validation set includes pathological images from eight centers. The cohort from the Third Xiangya Hospital of Central South University (TXH-CSU) provided 304 slides from 68 patients diagnosed with STAS between 2022 and 2023. The cohort from Xiangya hospital of Central South University (XH-CSU) provided 155 WSIs from 127 patients diagnosed with STAS between 2022 and 2023. The cohort from the Affiliated Tumor Hospital of Zhengzhou University (TH-ZZU) provided 91 WSIs from 19 patients diagnosed with LUAD and STAS in 2023. The cohort from the First Affiliated Hospital of Nanhua University (FAH-NHU) selected 130 WSIs from 42 patients diagnosed with LUAD and STAS between 2021 and 2024. The cohort from Changsha Jingkai Hospital (CJH) selected 91 WSIs from 45 patients diagnosed with LUAD and STAS between 2023 and 2024. The cohort from Pingjiang County First People's Hospital (PCPH) selected 78 WSIs from 35 patients diagnosed with LUAD and STAS between 2019 and 2021. The TCGA_LUAD dataset includes 366 patients with 417 WSIs. The CPTAC_LUAD cohort includes 170 patients with 443 WSIs. In the validation cohorts, TCGA_LUAD and CPTAC_LUAD provided patient-related clinical and multi-omics data, offering valuable information for survival and mechanistic studies of STAS patients. For detailed statistical data, please refer to the appendix.
 
 ## Installation
 - Linux (Tested on Ubuntu 18.04)
 - NVIDIA GPU (Tested on a single Nvidia GeForce RTX 4090)
 - Python (3.7.11), h5py (2.10.0), opencv-python (4.1.2.30), PyTorch (1.10.1), torchvision (0.11.2), pytorch-lightning (1.5.10).
 
-Note: You need to put the files in https://drive.google.com/drive/folders/1hk_i-1D48j0UN7mdqsw788J7treLSFoQ?usp=drive_link into the distance folder,
-and put the folders in https://drive.google.com/drive/folders/1GC2EyO6PmYGEbkL15hqjfg0WfLZhs9sg?usp=drive_link, https://drive.google.com/drive/folders/1hk_i-1D48j0UN7mdqsw788J7treLSFoQ?usp=drive_link into the main project.
-
-Note: Due to data security issues, we recommend downloading our distance measurement tool and using it locally.
+Note: The complete code will be made public after the paper is published.
 ## License
 If you need the original histopathology image slides, please send a request to our email address. The email address will be announced after the paper is accepted. Thank you!
 
