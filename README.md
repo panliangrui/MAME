@@ -2,7 +2,7 @@
 
 <div align="center">
   <a href="(https://github.com/panliangrui/MAME/blob/main/STAS.png)">
-    <img src="https://github.com/panliangrui/DAEM/blob/main/images/distance.png" width="800" height="400" />
+    <img src="https://github.com/panliangrui/MAME/blob/main/STAS.png" width="800" height="400" />
   </a>
 
   <h1>STAS Diagnostic Platform(https://113.219.237.106:34040/)</h1>
